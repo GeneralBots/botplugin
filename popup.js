@@ -1,8 +1,4 @@
-// General Bots - Popup Script
-// Handles settings management, authentication, and UI updates
-
 document.addEventListener("DOMContentLoaded", async function () {
-  // Default settings
   const DEFAULT_SETTINGS = {
     serverUrl: "https://api.generalbots.com",
     gbServerUrl: "https://api.pragmatismo.com.br",
@@ -21,19 +17,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     },
   };
 
-  // Load settings and update UI
   await loadSettings();
   await checkAuthStatus();
   loadStats();
 
-  // Event listeners
   setupEventListeners();
 
-  // Load saved settings
   async function loadSettings() {
     return new Promise((resolve) => {
       chrome.storage.sync.get(DEFAULT_SETTINGS, function (items) {
-        // Update form fields
         document.getElementById("server-url").value =
           items.serverUrl || DEFAULT_SETTINGS.serverUrl;
         document.getElementById("whatsapp-number").value =
@@ -50,7 +42,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  // Check authentication status
   async function checkAuthStatus() {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: "getAuthStatus" }, (response) => {
@@ -78,7 +69,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  // Load statistics
   function loadStats() {
     chrome.storage.local.get(["stats"], function (result) {
       const stats = result.stats || DEFAULT_SETTINGS.stats;
@@ -91,24 +81,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  // Setup event listeners
   function setupEventListeners() {
-    // Save settings button
     document
       .getElementById("save-settings")
       .addEventListener("click", saveSettings);
 
-    // Auth button
     document
       .getElementById("auth-btn")
       .addEventListener("click", handleAuthentication);
 
-    // Open options page
     document.getElementById("open-options").addEventListener("click", () => {
       chrome.runtime.openOptionsPage();
     });
 
-    // Toggle switches - save immediately on change
     const toggles = [
       "grammar-correction",
       "enable-processing",
@@ -117,12 +102,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     ];
     toggles.forEach((id) => {
       document.getElementById(id).addEventListener("change", function () {
-        saveSettings(true); // silent save
+        saveSettings(true);
       });
     });
   }
 
-  // Save settings
   async function saveSettings(silent = false) {
     const settings = {
       serverUrl: document.getElementById("server-url").value.trim(),
@@ -135,7 +119,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     return new Promise((resolve) => {
       chrome.storage.sync.set(settings, function () {
-        // Notify content script about settings change
         chrome.tabs.query(
           { url: "https://web.whatsapp.com/*" },
           function (tabs) {
@@ -157,32 +140,26 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  // Handle authentication
   async function handleAuthentication() {
     const numberInput = document.getElementById("whatsapp-number");
     const authBtn = document.getElementById("auth-btn");
     const number = numberInput.value.trim();
 
-    // Validate number
     if (!number) {
       showError(numberInput, "Please enter your WhatsApp number");
       return;
     }
 
-    // Clean number (remove spaces, dashes)
     const cleanNumber = number.replace(/[\s\-\(\)]/g, "");
 
-    // Basic validation
     if (!/^\+?[0-9]{10,15}$/.test(cleanNumber)) {
       showError(numberInput, "Invalid phone number format");
       return;
     }
 
-    // Update button state
     authBtn.disabled = true;
     authBtn.innerHTML = '<span class="btn-icon">⏳</span> Sending request...';
 
-    // Send auth request
     chrome.runtime.sendMessage(
       {
         action: "authenticate",
@@ -194,7 +171,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             '<span class="btn-icon">📱</span> Check your WhatsApp';
           authBtn.classList.add("btn-success");
 
-          // Start polling for auth completion
           pollAuthStatus();
         } else {
           authBtn.disabled = false;
@@ -208,10 +184,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
   }
 
-  // Poll for authentication status
   function pollAuthStatus(attempts = 0) {
     if (attempts > 60) {
-      // 5 minutes max
       showNotification("Authentication timed out. Please try again.", "error");
       resetAuthButton();
       return;
@@ -229,7 +203,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     }, 5000);
   }
 
-  // Reset auth button
   function resetAuthButton() {
     const authBtn = document.getElementById("auth-btn");
     authBtn.disabled = false;
@@ -238,7 +211,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       '<span class="btn-icon">🤖</span> Authenticate via WhatsApp';
   }
 
-  // Show error on input
   function showError(input, message) {
     input.classList.add("error");
     const small = input.parentElement.querySelector("small");
@@ -256,7 +228,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     }, 3000);
   }
 
-  // Show feedback on button
   function showFeedback(buttonId, message, type = "success") {
     const button = document.getElementById(buttonId);
     const originalHTML = button.innerHTML;
@@ -273,9 +244,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }, 1500);
   }
 
-  // Show notification
   function showNotification(message, type = "info") {
-    // Remove existing notification
     const existing = document.querySelector(".popup-notification");
     if (existing) existing.remove();
 

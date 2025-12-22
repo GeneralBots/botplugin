@@ -1,7 +1,3 @@
-// General Bots - Background Service Worker
-// Handles authentication, LLM communication, and message processing
-
-// Default configuration
 const DEFAULT_CONFIG = {
   serverUrl: "https://api.generalbots.com",
   gbServerUrl: "https://api.pragmatismo.com.br",
@@ -14,15 +10,12 @@ const DEFAULT_CONFIG = {
   instanceId: "",
 };
 
-// Initialize extension on install
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log("General Bots: Extension installed/updated", details.reason);
 
-  // Set default settings on installation
   const existing = await chrome.storage.sync.get(DEFAULT_CONFIG);
   await chrome.storage.sync.set({ ...DEFAULT_CONFIG, ...existing });
 
-  // Create context menu items
   chrome.contextMenus?.create({
     id: "gb-correct-grammar",
     title: "Correct Grammar with AI",
@@ -36,7 +29,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   });
 });
 
-// Listen for tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (
     changeInfo.status === "complete" &&
@@ -44,17 +36,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   ) {
     console.log("General Bots: WhatsApp Web detected, initializing...");
 
-    // Notify content script that tab is ready
-    chrome.tabs.sendMessage(tabId, { action: "tabReady" }).catch(() => {
-      // Content script may not be loaded yet, that's okay
-    });
+    chrome.tabs.sendMessage(tabId, { action: "tabReady" }).catch(() => {});
 
-    // Check for auto-authentication
     checkAutoAuth(tabId);
   }
 });
 
-// Handle messages from content script and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("General Bots: Received message", message.action);
 
@@ -63,7 +50,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleProcessText(message.text, message.options)
         .then(sendResponse)
         .catch((err) => sendResponse({ error: err.message }));
-      return true; // Will respond asynchronously
+      return true;
 
     case "correctGrammar":
       handleGrammarCorrection(message.text)
@@ -109,7 +96,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// Context menu click handler
 chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText) return;
 
@@ -125,12 +111,10 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
       break;
 
     case "gb-translate":
-      // Could implement translation here
       break;
   }
 });
 
-// Process text through LLM
 async function handleProcessText(text, options = {}) {
   const settings = await chrome.storage.sync.get(DEFAULT_CONFIG);
 
@@ -167,12 +151,10 @@ async function handleProcessText(text, options = {}) {
     };
   } catch (error) {
     console.error("General Bots: Process text error", error);
-    // Fallback - return original text
     return { processedText: text, changed: false, error: error.message };
   }
 }
 
-// Grammar correction specifically
 async function handleGrammarCorrection(text) {
   const settings = await chrome.storage.sync.get(DEFAULT_CONFIG);
 
@@ -207,7 +189,6 @@ async function handleGrammarCorrection(text) {
   }
 }
 
-// Auto-reply generation
 async function handleAutoReply(context, lastMessages = []) {
   const settings = await chrome.storage.sync.get(DEFAULT_CONFIG);
 
@@ -249,12 +230,10 @@ async function handleAutoReply(context, lastMessages = []) {
   }
 }
 
-// Authentication with General Bots via WhatsApp
 async function handleAuthentication(whatsappNumber) {
   const settings = await chrome.storage.sync.get(DEFAULT_CONFIG);
 
   try {
-    // Request authentication via General Bots WhatsApp bot
     const response = await fetch(
       `${settings.gbServerUrl}/api/v1/auth/whatsapp/request`,
       {
@@ -276,21 +255,18 @@ async function handleAuthentication(whatsappNumber) {
 
     const data = await response.json();
 
-    // Save pending auth state
     await chrome.storage.sync.set({
       whatsappNumber,
       authPending: true,
       authRequestId: data.requestId,
     });
 
-    // Show notification to user
     showNotification(
       "Authentication Requested",
       "Check your WhatsApp for a message from General Bots to complete authentication.",
       "info",
     );
 
-    // Start polling for auth completion
     pollAuthCompletion(data.requestId);
 
     return { success: true, requestId: data.requestId };
@@ -300,10 +276,8 @@ async function handleAuthentication(whatsappNumber) {
   }
 }
 
-// Poll for authentication completion
 async function pollAuthCompletion(requestId, attempts = 0) {
   if (attempts > 60) {
-    // 5 minutes max
     await chrome.storage.sync.set({ authPending: false });
     showNotification("Authentication Timeout", "Please try again.", "error");
     return;
@@ -333,7 +307,6 @@ async function pollAuthCompletion(requestId, attempts = 0) {
           "success",
         );
 
-        // Broadcast to all tabs
         broadcastSettingsUpdate({ authenticated: true });
         return;
       } else if (data.status === "failed") {
@@ -350,11 +323,9 @@ async function pollAuthCompletion(requestId, attempts = 0) {
     console.error("General Bots: Poll auth error", error);
   }
 
-  // Continue polling
   setTimeout(() => pollAuthCompletion(requestId, attempts + 1), 5000);
 }
 
-// Check auth status
 async function getAuthStatus() {
   const settings = await chrome.storage.sync.get([
     "authToken",
@@ -367,7 +338,6 @@ async function getAuthStatus() {
     return { authenticated: false };
   }
 
-  // Verify token is still valid
   try {
     const response = await fetch(
       `${DEFAULT_CONFIG.gbServerUrl}/api/v1/auth/verify`,
@@ -389,7 +359,6 @@ async function getAuthStatus() {
     console.error("General Bots: Verify auth error", error);
   }
 
-  // Token invalid, clear auth
   await chrome.storage.sync.set({
     authToken: "",
     authenticated: false,
@@ -398,7 +367,6 @@ async function getAuthStatus() {
   return { authenticated: false };
 }
 
-// Check for auto-authentication when WhatsApp loads
 async function checkAutoAuth(tabId) {
   const settings = await chrome.storage.sync.get([
     "authenticated",
@@ -407,7 +375,6 @@ async function checkAutoAuth(tabId) {
   ]);
 
   if (settings.authenticated && settings.autoMode) {
-    // Notify content script that auto mode is active
     setTimeout(() => {
       chrome.tabs
         .sendMessage(tabId, {
@@ -419,7 +386,6 @@ async function checkAutoAuth(tabId) {
   }
 }
 
-// Broadcast settings update to all WhatsApp tabs
 async function broadcastSettingsUpdate(settings) {
   const tabs = await chrome.tabs.query({ url: "https://web.whatsapp.com/*" });
 
@@ -433,7 +399,6 @@ async function broadcastSettingsUpdate(settings) {
   }
 }
 
-// Show browser notification
 function showNotification(title, message, type = "info") {
   const iconPath = type === "error" ? "icons/icon48.png" : "icons/icon48.png";
 
@@ -446,7 +411,6 @@ function showNotification(title, message, type = "info") {
   });
 }
 
-// Alarm for periodic tasks
 chrome.alarms?.create("checkAuth", { periodInMinutes: 30 });
 
 chrome.alarms?.onAlarm.addListener(async (alarm) => {

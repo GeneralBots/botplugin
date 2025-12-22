@@ -1,10 +1,6 @@
-// General Bots - Content Script for WhatsApp Web
-// Provides grammar correction, auto-mode, contact hiding, and LLM integration
-
 (function () {
   "use strict";
 
-  // Global settings
   let settings = {
     serverUrl: "https://api.generalbots.com",
     enableProcessing: true,
@@ -15,7 +11,6 @@
     authenticated: false,
   };
 
-  // State management
   const state = {
     initialized: false,
     currentContact: null,
@@ -25,7 +20,6 @@
     isProcessing: false,
   };
 
-  // Selectors for WhatsApp Web elements
   const SELECTORS = {
     contactList: "#pane-side",
     chatContainer: ".copyable-area",
@@ -40,31 +34,22 @@
     searchBox: 'div[data-tab="3"]',
   };
 
-  // Initialize the extension
   async function init() {
     if (state.initialized) return;
 
     console.log("General Bots: Initializing content script...");
 
-    // Load settings from storage
     await loadSettings();
-
-    // Apply initial UI modifications
     applyUIModifications();
-
-    // Setup observers and listeners
     setupInputListener();
     setupMessageObserver();
     setupContactObserver();
-
-    // Inject custom UI elements
     injectControlPanel();
 
     state.initialized = true;
     console.log("General Bots: Content script initialized");
   }
 
-  // Load settings from chrome storage
   async function loadSettings() {
     return new Promise((resolve) => {
       chrome.storage.sync.get(settings, (items) => {
@@ -75,13 +60,11 @@
     });
   }
 
-  // Apply UI modifications based on settings
   function applyUIModifications() {
     applyContactVisibility();
     applyAutoModeIndicator();
   }
 
-  // Hide/show contact list
   function applyContactVisibility() {
     const contactList = document.querySelector(SELECTORS.contactList);
     if (contactList) {
@@ -97,7 +80,6 @@
     }
   }
 
-  // Show auto-mode indicator
   function applyAutoModeIndicator() {
     let indicator = document.getElementById("gb-auto-mode-indicator");
 
@@ -118,7 +100,6 @@
     }
   }
 
-  // Setup input field listener for message processing
   function setupInputListener() {
     const observer = new MutationObserver(() => {
       const inputField = document.querySelector(SELECTORS.messageInput);
@@ -133,7 +114,6 @@
       subtree: true,
     });
 
-    // Check immediately
     const inputField = document.querySelector(SELECTORS.messageInput);
     if (inputField && !inputField.getAttribute("gb-monitored")) {
       setupFieldMonitoring(inputField);
@@ -141,11 +121,9 @@
     }
   }
 
-  // Monitor input field for messages
   function setupFieldMonitoring(inputField) {
     console.log("General Bots: Setting up input field monitoring");
 
-    // Listen for keydown events
     inputField.addEventListener("keydown", async (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
         const originalText = inputField.textContent.trim();
@@ -163,7 +141,6 @@
                 result.processedText &&
                 result.processedText !== originalText
               ) {
-                // Show correction preview
                 const shouldSend = await showCorrectionPreview(
                   originalText,
                   result.processedText,
@@ -172,7 +149,6 @@
 
                 if (shouldSend) {
                   setInputText(inputField, result.processedText);
-                  // Store original for reference
                   state.originalMessages.set(Date.now(), {
                     original: originalText,
                     corrected: result.processedText,
@@ -181,7 +157,6 @@
               }
 
               hideProcessingIndicator();
-              // Send the message
               simulateEnterPress(inputField);
             } catch (error) {
               console.error("General Bots: Error processing message", error);
@@ -193,11 +168,9 @@
       }
     });
 
-    // Add visual indicator that field is being monitored
     inputField.classList.add("gb-monitored-input");
   }
 
-  // Process message through LLM for grammar correction
   async function processMessageWithLLM(text) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
@@ -220,10 +193,8 @@
     });
   }
 
-  // Show correction preview modal
   async function showCorrectionPreview(original, corrected, inputField) {
     return new Promise((resolve) => {
-      // If texts are very similar, auto-accept
       if (levenshteinDistance(original, corrected) < 3) {
         resolve(true);
         return;
@@ -258,7 +229,6 @@
 
       document.body.appendChild(modal);
 
-      // Auto-close after 5 seconds with corrected text
       const autoClose = setTimeout(() => {
         modal.remove();
         resolve(true);
@@ -278,7 +248,6 @@
     });
   }
 
-  // Setup observer for incoming messages (for auto-reply)
   function setupMessageObserver() {
     const observer = new MutationObserver((mutations) => {
       if (!settings.autoMode) return;
@@ -300,7 +269,6 @@
       }
     });
 
-    // Start observing when chat container is available
     const waitForChat = setInterval(() => {
       const chatContainer = document.querySelector(SELECTORS.chatContainer);
       if (chatContainer) {
@@ -314,14 +282,12 @@
     }, 1000);
   }
 
-  // Handle incoming message for auto-reply
   async function handleIncomingMessage(messageElement) {
     if (!settings.autoMode || !settings.authenticated) return;
 
     const currentContact = getCurrentContactName();
     if (!currentContact) return;
 
-    // Check if auto-mode is enabled for this contact
     if (!state.autoModeContacts.has(currentContact)) return;
 
     const messageText = messageElement.querySelector(SELECTORS.messageText);
@@ -335,10 +301,8 @@
       text,
     );
 
-    // Get conversation context
     const context = getConversationContext();
 
-    // Request auto-reply from LLM
     chrome.runtime.sendMessage(
       {
         action: "generateAutoReply",
@@ -356,7 +320,6 @@
     );
   }
 
-  // Get conversation context (last few messages)
   function getConversationContext() {
     const messages = [];
     const messageElements = document.querySelectorAll(
@@ -378,20 +341,17 @@
     return messages;
   }
 
-  // Send auto-reply
   async function sendAutoReply(text) {
     const inputField = document.querySelector(SELECTORS.messageInput);
     if (!inputField) return;
 
     setInputText(inputField, text);
 
-    // Small delay before sending
     await new Promise((r) => setTimeout(r, 500));
 
     simulateEnterPress(inputField);
   }
 
-  // Setup contact observer for auto-mode toggle per contact
   function setupContactObserver() {
     const observer = new MutationObserver(() => {
       const header = document.querySelector(SELECTORS.chatHeader);
@@ -406,7 +366,6 @@
     });
   }
 
-  // Inject control buttons for current contact
   function injectContactControls(header) {
     const contactName = getCurrentContactName();
     if (!contactName) return;
@@ -442,7 +401,6 @@
       });
   }
 
-  // Inject main control panel
   function injectControlPanel() {
     const panel = document.createElement("div");
     panel.id = "gb-control-panel";
@@ -494,14 +452,10 @@
     `;
 
     document.body.appendChild(panel);
-
-    // Setup panel event listeners
     setupPanelListeners();
   }
 
-  // Setup control panel event listeners
   function setupPanelListeners() {
-    // Panel toggle
     document
       .getElementById("gb-panel-toggle")
       ?.addEventListener("click", function () {
@@ -515,7 +469,6 @@
         }
       });
 
-    // Grammar toggle
     document
       .getElementById("gb-grammar-toggle")
       ?.addEventListener("change", function () {
@@ -523,7 +476,6 @@
         saveSettings();
       });
 
-    // Contacts toggle
     document
       .getElementById("gb-contacts-toggle")
       ?.addEventListener("change", function () {
@@ -532,7 +484,6 @@
         saveSettings();
       });
 
-    // Auto mode toggle
     document
       .getElementById("gb-auto-toggle")
       ?.addEventListener("change", function () {
@@ -541,7 +492,6 @@
         saveSettings();
       });
 
-    // Auth button
     document
       .getElementById("gb-auth-btn")
       ?.addEventListener("click", async function () {
@@ -576,7 +526,6 @@
       });
   }
 
-  // Save settings to storage
   function saveSettings() {
     chrome.storage.sync.set(settings);
     chrome.runtime.sendMessage({
@@ -585,19 +534,16 @@
     });
   }
 
-  // Get current contact name
   function getCurrentContactName() {
     const nameEl = document.querySelector(SELECTORS.contactName);
     return nameEl ? nameEl.textContent.trim() : null;
   }
 
-  // Set text in input field
   function setInputText(inputField, text) {
     inputField.textContent = text;
     inputField.dispatchEvent(new InputEvent("input", { bubbles: true }));
   }
 
-  // Simulate Enter key press
   function simulateEnterPress(element) {
     const enterEvent = new KeyboardEvent("keydown", {
       key: "Enter",
@@ -610,7 +556,6 @@
     element.dispatchEvent(enterEvent);
   }
 
-  // Show processing indicator
   function showProcessingIndicator(inputField) {
     let indicator = document.getElementById("gb-processing");
     if (!indicator) {
@@ -626,7 +571,6 @@
     indicator.style.display = "flex";
   }
 
-  // Hide processing indicator
   function hideProcessingIndicator() {
     const indicator = document.getElementById("gb-processing");
     if (indicator) {
@@ -634,14 +578,12 @@
     }
   }
 
-  // Utility: Escape HTML
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
 
-  // Utility: Levenshtein distance for text comparison
   function levenshteinDistance(str1, str2) {
     const m = str1.length;
     const n = str2.length;
@@ -665,7 +607,6 @@
     return dp[m][n];
   }
 
-  // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.action) {
       case "tabReady":
@@ -694,7 +635,6 @@
 
       case "authCompleted":
         settings.authenticated = true;
-        // Refresh control panel
         const panel = document.getElementById("gb-control-panel");
         if (panel) {
           panel.remove();
@@ -707,13 +647,11 @@
     return true;
   });
 
-  // Initialize on DOM ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }
 
-  // Also try to initialize after a delay (WhatsApp Web loads dynamically)
   setTimeout(init, 2000);
 })();
